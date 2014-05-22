@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Javascript map API example</title>
+    
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+	<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js"></script>
+	<script type="text/javascript" src="https://jquery-csv.googlecode.com/files/jquery.csv-0.71.min.js"></script>
+	
+	<script type="text/javascript">
+		// this is based on https://developers.google.com/earth/documentation/#using_the_google_earth_api
+		// and https://code.google.com/apis/ajax/playground
+		
+		// icons from http://kml4earth.appspot.com/icons.html
+		
+		var ge;
+		google.load("earth", "1.x", {"other_params":"sensor=false"});
+		
+		// initialize the map
+		function init() {
+			google.earth.createInstance('map3d', initCB, failureCB);
+		}
+
+		// success callback
+		function initCB(instance) {
+			ge = instance;
+			ge.getWindow().setVisibility(true);
+			// add a navigation control
+			ge.getNavigationControl().setVisibility(ge.VISIBILITY_AUTO);
+
+			// add some layers
+			ge.getLayerRoot().enableLayerById(ge.LAYER_BORDERS, true);
+			ge.getLayerRoot().enableLayerById(ge.LAYER_ROADS, true);
+			
+			
+			createPlacemarks();
+			
+			var lookAt = ge.createLookAt('');
+			// latitude, longitude, altitude, altitudeMode, heading, tilt, range
+			lookAt.set(point.y, point.x, 600, ge.ALTITUDE_RELATIVE_TO_GROUND, 0, 0, 0);
+			ge.getView().setAbstractView(lookAt);
+		}
+		
+		// failure callback
+		function failureCB(errorCode) {
+		}
+		
+		function createPlacemarks() {
+			$.get( 'data.csv', function( pdata ) {
+				var markers = $.csv.toObjects(pdata);
+					
+				for(i = 0; i < markers.length; i++) {
+					var marker = markers[i];
+					
+					var placemark = ge.createPlacemark('');
+					placemark.setName(marker.Name);
+					ge.getFeatures().appendChild(placemark);
+
+					// Define a custom icon.
+					var icon = ge.createIcon('');
+					icon.setHref(marker.Icon);
+					var style = ge.createStyle(''); //create a new style
+					style.getIconStyle().setIcon(icon); //apply the icon to the style
+					placemark.setStyleSelector(style); //apply the style to the placemark
+					
+					// Set the placemark's location.  
+					var point = ge.createPoint('');
+					point.setLatitude(parseFloat(marker.Latitude));
+					point.setLongitude(parseFloat(marker.Longitude));
+					placemark.setGeometry(point);
+
+					// Add the placemark to Earth.
+					ge.getFeatures().appendChild(placemark);
+					
+				}
+					
+			}, 'text');
+			
+		}
+		
+		google.setOnLoadCallback(init);
+
+	</script>
+  </head>
+  <body>
+	<div id="map3d" style="height: 1000px; width: 100%;"></div>
+  </body>
+</html>
