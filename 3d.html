@@ -32,13 +32,9 @@
 			ge.getLayerRoot().enableLayerById(ge.LAYER_BORDERS, true);
 			ge.getLayerRoot().enableLayerById(ge.LAYER_ROADS, true);
 			
+			// add some drama
+			setTimeout(function() {createPlacemarks();},1000);
 			
-			createPlacemarks();
-			
-			var lookAt = ge.createLookAt('');
-			// latitude, longitude, altitude, altitudeMode, heading, tilt, range
-			lookAt.set(point.y, point.x, 600, ge.ALTITUDE_RELATIVE_TO_GROUND, 0, 0, 0);
-			ge.getView().setAbstractView(lookAt);
 		}
 		
 		// failure callback
@@ -48,6 +44,8 @@
 		function createPlacemarks() {
 			$.get( 'data.csv', function( pdata ) {
 				var markers = $.csv.toObjects(pdata);
+				var x = 0;
+				var y = 0;
 					
 				for(i = 0; i < markers.length; i++) {
 					var marker = markers[i];
@@ -68,16 +66,71 @@
 					point.setLatitude(parseFloat(marker.Latitude));
 					point.setLongitude(parseFloat(marker.Longitude));
 					placemark.setGeometry(point);
+					
+					// Grab some coordinate for centering the map
+					if (x == 0) {
+						x = parseFloat(marker.Longitude);
+						y = parseFloat(marker.Latitude);
+					}
 
 					// Add the placemark to Earth.
 					ge.getFeatures().appendChild(placemark);
 					
 				}
+								
+				// Zoom and center on our area
+				var lookAt = ge.createLookAt('');
+				// latitude, longitude, altitude, altitudeMode, heading, tilt, range
+				lookAt.set(y, x, 20000, ge.ALTITUDE_RELATIVE_TO_GROUND, 0, 0, 0);
+				ge.getView().setAbstractView(lookAt);	
+
+				// Draw some circles for fun
+				createMultiGeometry(x, y);
 					
 			}, 'text');
 			
 		}
 		
+		function createMultiGeometry(x, y) {
+			// based on https://code.google.com/p/earth-api-samples/issues/detail?id=618
+			var rad=3000;//meters
+			y = y * Math.PI / 180;
+			x = x * Math.PI / 180;
+			//radius WGS 84 http://en.wikipedia.org/wiki/Figure_of_the_Earth
+			var d_rad = 6378137;
+
+			var multGeoPlacemark = ge.createPlacemark('');
+			multGeoPlacemark.setGeometry(ge.createMultiGeometry(''));
+			multGeoPlacemark.setStyleSelector(ge.createStyle('')); 
+			var lineStyle = multGeoPlacemark.getStyleSelector().getLineStyle(); 
+			lineStyle.setWidth(5); 
+			// color is in aabbggrr format
+			lineStyle.getColor().set('ffff00ff'); 
+			var geoms = multGeoPlacemark.getGeometry().getGeometries();
+			geoms.appendChild(drawCircle(x, y, (rad / d_rad)));
+			geoms.appendChild(drawCircle(x, y, ((rad + 500) / d_rad)));
+			ge.getFeatures().appendChild(multGeoPlacemark);
+		}
+		
+		function drawCircle(x, y, rad) { 
+			var center = ge.getView().copyAsLookAt(ge.ALTITUDE_RELATIVE_TO_GROUND); 
+			var ring = ge.createLinearRing('');
+			var radial;
+			var lat_rad;
+			var dlon_rad;
+			var lon_rad;
+			for (var i = 0; i <= 360; i++) { //if we vary the initial value of i and / or grade, you get different figures
+				radial = i * Math.PI / 180;
+				lat_rad = Math.asin(Math.sin(y)*Math.cos(rad) + Math.cos(y)*Math.sin(rad)*Math.cos(radial)); 
+				dlon_rad = Math.atan2(Math.sin(radial)*Math.sin(rad)*Math.cos(y),Math.cos(rad)-Math.sin(y)*Math.sin(lat_rad));
+				lon_rad = parseFloat((x+dlon_rad + Math.PI), 2*Math.PI) - Math.PI;
+				lon_rad=lon_rad * 180 / Math.PI;
+				lat_rad=lat_rad * 180 / Math.PI;
+				ring.getCoordinates().pushLatLngAlt(lat_rad, lon_rad, 0);
+			}
+			return ring;
+		}
+					
 		google.setOnLoadCallback(init);
 
 	</script>
